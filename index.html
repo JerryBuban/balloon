@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Balloon Pop Game — Confetti from Balloon</title>
+    <style>
+      :root {
+        --bg: #fbf4e6;
+        --balloon-shadow: 0 12px 30px rgba(0, 0, 0, 0.12),
+          inset -10px -8px 30px rgba(0, 0, 0, 0.06);
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: var(--bg);
+        font-family: system-ui, Segoe UI, Roboto, Arial;
+        overflow: hidden;
+      }
+
+      /* Scene */
+      .scene {
+        position: relative;
+        display: flex;
+        gap: 40px;
+        align-items: flex-end;
+        z-index: 2;
+        padding: 40px;
+      }
+
+      .fence {
+        width: 20px;
+        height: 120px;
+        background: #a05a2c;
+        border: 3px solid #804020;
+        border-radius: 4px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.12);
+      }
+
+      /* Balloon (same look as first file) */
+      .balloon {
+        width: 160px;
+        height: 210px;
+        background: radial-gradient(
+            120px 90px at 30% 20%,
+            rgba(255, 255, 255, 0.95),
+            rgba(255, 255, 255, 0.1)
+          ),
+          #ff6b81;
+        border-radius: 90px 90px 60px 60px / 100px 100px 50px 50px;
+        box-shadow: var(--balloon-shadow);
+        position: relative;
+        transform-origin: center bottom;
+        animation: float 4s ease-in-out infinite;
+        cursor: pointer;
+        user-select: none;
+      }
+      .balloon::before {
+        content: "";
+        position: absolute;
+        left: 22%;
+        top: 18%;
+        width: 44px;
+        height: 72px;
+        background: linear-gradient(
+          180deg,
+          rgba(255, 255, 255, 0.95),
+          rgba(255, 255, 255, 0.15)
+        );
+        border-radius: 50%;
+        transform: rotate(-12deg);
+        filter: blur(0.6px);
+        opacity: 0.95;
+      }
+      .balloon::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        bottom: -10px;
+        transform: translateX(-50%);
+        width: 18px;
+        height: 18px;
+        background: linear-gradient(
+          180deg,
+          rgba(0, 0, 0, 0.06),
+          rgba(0, 0, 0, 0.02)
+        );
+        clip-path: polygon(50% 0, 100% 35%, 75% 100%, 25% 100%, 0 35%);
+        border-radius: 2px;
+      }
+      .string {
+        position: absolute;
+        top: 210px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 2px;
+        height: 160px;
+        background: linear-gradient(
+          180deg,
+          rgba(0, 0, 0, 0.14),
+          rgba(0, 0, 0, 0.06)
+        );
+        border-radius: 2px;
+        animation: wag 4s ease-in-out infinite;
+      }
+
+      /* subtle float */
+      @keyframes float {
+        0% {
+          transform: translateY(0) rotate(-1deg);
+        }
+        50% {
+          transform: translateY(-18px) rotate(2deg);
+        }
+        100% {
+          transform: translateY(0) rotate(-1deg);
+        }
+      }
+      @keyframes wag {
+        0% {
+          transform: translateX(-50%) rotate(0deg);
+        }
+        25% {
+          transform: translateX(-50%) rotate(-3deg);
+        }
+        50% {
+          transform: translateX(-50%) rotate(3deg);
+        }
+        75% {
+          transform: translateX(-50%) rotate(-2deg);
+        }
+        100% {
+          transform: translateX(-50%) rotate(0deg);
+        }
+      }
+
+      /* Pop visual (a quick scale-out) */
+      .pop-burst {
+        position: absolute;
+        border-radius: 50%;
+        pointer-events: none;
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0.9;
+        transition: transform 0.35s ease-out, opacity 0.5s ease-out;
+        z-index: 3;
+      }
+
+      /* Popup (paper) */
+      .popup {
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 320px;
+        background: #fffdf6;
+        padding: 28px 24px 44px;
+        text-align: center;
+        border-radius: 10px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.28);
+        display: none;
+        z-index: 9999;
+        border: 6px solid rgba(0, 0, 0, 0.03);
+      }
+      /* little corner decorations */
+      .popup::before,
+      .popup::after {
+        content: "";
+        position: absolute;
+        width: 30px;
+        height: 30px;
+        background: linear-gradient(135deg, rgba(0, 0, 0, 0.03), transparent);
+        border-radius: 4px;
+        opacity: 0.7;
+      }
+      .popup::before {
+        left: 10px;
+        top: 10px;
+        transform: rotate(12deg);
+      }
+      .popup::after {
+        right: 10px;
+        bottom: 10px;
+        transform: rotate(-8deg);
+      }
+
+      .close-btn {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        background: #ff6b81;
+        color: white;
+        border: none;
+        padding: 8px 12px;
+        border-radius: 6px;
+        cursor: pointer;
+      }
+
+      /* Confetti container sits over the scene but under the popup */
+      #confetti-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 4;
+        overflow: visible;
+      }
+      .confetti {
+        position: absolute;
+        will-change: transform, opacity;
+        pointer-events: none;
+      }
+
+      /* responsive */
+      @media (max-width: 480px) {
+        .balloon {
+          width: 120px;
+          height: 165px;
+        }
+        .string {
+          height: 120px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="scene">
+      <!-- left balloon rotated -30deg -->
+      <div
+        class="balloon"
+        id="b1"
+        style="background: #ff6b81; transform: rotate(-30deg)"
+        data-message="Wishing you a Happy Birthday, More Birthdays to come!!!"
+      >
+        <div class="string"></div>
+      </div>
+
+      <!-- middle balloon (attached to fence) -->
+      <div
+        class="balloon"
+        id="b2"
+        style="background: #dff0f8"
+        data-message="Happy Birtday!!! Live your life at your fullest"
+      >
+        <div class="string"></div>
+      </div>
+
+      <!-- right balloon rotated 30deg -->
+      <div
+        class="balloon"
+        id="b3"
+        style="background: #ffd36b; transform: rotate(30deg)"
+        data-message="Enjoy your year, this is your time to shine!! "
+      >
+        <div class="string"></div>
+      </div>
+    </div>
+
+    <div id="confetti-container" aria-hidden="true"></div>
+
+    <div class="popup" id="popup" role="dialog" aria-modal="true">
+      <p
+        id="popup-message"
+        style="font-size: 18px; font-weight: 600; margin: 0 0 8px"
+      ></p>
+      <p style="margin: 0 0 12px; color: #555">
+        Here's a little note just for you.
+      </p>
+      <button class="close-btn" id="close-btn">Thank you</button>
+    </div>
+
+    <script>
+      const balloons = document.querySelectorAll(".balloon");
+      const popup = document.getElementById("popup");
+      const popupMsg = document.getElementById("popup-message");
+      const closeBtn = document.getElementById("close-btn");
+      const confettiContainer = document.getElementById("confetti-container");
+
+      let popCount = 0;
+      // store particles for animation loop
+      const particles = [];
+      let rafId = null;
+
+      // physics settings
+      const gravity = 0.1;
+      const airFriction = 1; // horizontal damping
+      const groundY = () => window.innerHeight - 3; // y position considered ground (4px padding)
+
+      // click handler for balloons
+      balloons.forEach((balloon) => {
+        balloon.addEventListener("click", (e) => {
+          const el = e.currentTarget;
+          // find origin (knot bottom center of balloon)
+          const rect = el.getBoundingClientRect();
+          const originX = rect.left + rect.width / 2;
+          // approximate knot position near bottom of balloon
+          const originY = rect.top + rect.height * 0.85;
+
+          // create a quick burst visual (tiny expanding circle)
+          createBurst(
+            originX,
+            originY,
+            getComputedStyle(el).backgroundColor || "#fff"
+          );
+
+          // launch confetti from that origin
+          launchConfetti(originX, originY);
+
+          // show popup with message
+          popupMsg.textContent = el.dataset.message || "Happy Birthday!";
+          popup.style.display = "block";
+
+          // hide the balloon after a short delay so it feels like it popped
+          setTimeout(() => {
+            el.style.visibility = "hidden";
+          }, 220);
+
+          popCount++;
+        });
+      });
+
+      closeBtn.addEventListener("click", () => {
+        popup.style.display = "none";
+        if (popCount < balloons.length) {
+          alert("Pop one more!");
+        }
+      });
+
+      // create an expanding burst circle for visual feedback
+      function createBurst(x, y, color) {
+        const burst = document.createElement("div");
+        burst.className = "pop-burst";
+        burst.style.left = x + "px";
+        burst.style.top = y + "px";
+        burst.style.width = burst.style.height = "12px";
+        burst.style.background = color;
+        confettiContainer.appendChild(burst);
+
+        // force a frame before expanding
+        requestAnimationFrame(() => {
+          burst.style.transform = `translate(-50%,-50%) scale(5)`;
+          burst.style.opacity = "0.15";
+        });
+
+        // remove after animation
+        setTimeout(() => burst.remove(), 600);
+      }
+
+      // launch a number of confetti pieces from x,y all directions
+      function launchConfetti(x, y) {
+        const colors = [
+          "#ff0a54",
+          "#ff477e",
+          "#ff7096",
+          "#ff85a1",
+          "#fbb1bd",
+          "#00bbf9",
+          "#00f5d4",
+          "#9b5de5",
+          "#f15bb5",
+          "#fee440",
+        ];
+        const count = Math.round(Math.min(220, 80 + Math.random() * 120)); // dynamic but capped
+
+        for (let i = 0; i < count; i++) {
+          if (particles.length > 2000) break; // safety cap
+
+          const size = Math.random() * 8 + 6;
+          const el = document.createElement("div");
+          el.className = "confetti";
+          el.style.width = size + "px";
+          el.style.height = (Math.random() > 0.5 ? size : size * 0.6) + "px";
+          el.style.background =
+            colors[Math.floor(Math.random() * colors.length)];
+          el.style.left = "0px";
+          el.style.top = "0px";
+          // random shape
+          el.style.borderRadius = Math.random() > 0.5 ? "2px" : "50%";
+          el.style.opacity = 1;
+
+          confettiContainer.appendChild(el);
+
+          // initial physics
+          // angle in all directions
+          const angle = Math.random() * Math.PI * 2;
+          const speed = Math.random() * 6 + 3;
+          const vx = Math.cos(angle) * speed;
+          const vy = Math.sin(angle) * speed * -1 * (Math.random() * 1 + 1); // bias slightly upwards initially
+
+          particles.push({
+            el,
+            x: x,
+            y: y,
+            vx,
+            vy,
+            size,
+            rotation: Math.random() * 360,
+            vr: (Math.random() - 0.5) * 10,
+            stuck: false,
+          });
+        }
+
+        // start loop if not already running
+        if (!rafId) rafId = requestAnimationFrame(updateParticles);
+      }
+
+      // animation loop — updates positions and applies gravity
+      function updateParticles() {
+        for (let i = 0; i < particles.length; i++) {
+          const p = particles[i];
+          if (p.stuck) continue; // if already on ground don't simulate further
+
+          // apply physics
+          p.vy += gravity;
+          p.vx *= airFriction;
+          p.x += p.vx;
+          p.y += p.vy;
+          p.rotation += p.vr;
+
+          // check ground collision
+          const ground = groundY();
+          if (p.y >= ground - p.size) {
+            p.y = ground - p.size;
+            p.vy = 0;
+            p.vx *= 0.2; // friction
+            p.vr = 0;
+            p.stuck = true; // stop simulating heavy physics for this particle
+          }
+
+          // apply to DOM element
+          p.el.style.transform = `translate(${Math.round(p.x)}px, ${Math.round(
+            p.y
+          )}px) rotate(${p.rotation}deg)`;
+        }
+
+        // continue loop if there are still moving particles
+        const anyMoving = particles.some((p) => !p.stuck);
+        if (anyMoving) rafId = requestAnimationFrame(updateParticles);
+        else rafId = null; // stop loop until next launch
+      }
+
+      // make sure confetti stays consistent on resize
+      window.addEventListener("resize", () => {
+        // nothing heavy — particles compute ground from window height each frame
+      });
+    </script>
+  </body>
+</html>
